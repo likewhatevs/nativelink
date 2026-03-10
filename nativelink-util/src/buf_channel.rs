@@ -34,11 +34,10 @@ const ZERO_DATA: Bytes = Bytes::new();
 /// the number of bytes sent.
 #[must_use]
 pub fn make_buf_channel_pair() -> (DropCloserWriteHalf, DropCloserReadHalf) {
-    // We allow up to 2 items in the buffer at any given time. There is no major
-    // reason behind this magic number other than thinking it will be nice to give
-    // a little time for another thread to wake up and consume data if another
-    // thread is pumping large amounts of data into the channel.
-    let (tx, rx) = mpsc::channel(2);
+    // Allow enough in-flight items to keep the pipeline saturated on fast
+    // networks. With 2 MB chunks this gives ~128 MB of buffering headroom
+    // which is sufficient to hide scheduling jitter on 10 GbE+ links.
+    let (tx, rx) = mpsc::channel(64);
     let eof_sent = Arc::new(AtomicBool::new(false));
     (
         DropCloserWriteHalf {
