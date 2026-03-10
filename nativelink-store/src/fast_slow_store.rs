@@ -399,9 +399,8 @@ impl StoreDriver for FastSlowStore {
         let (mut fast_tx, fast_rx) = make_buf_channel_pair();
         let (mut slow_tx, slow_rx) = make_buf_channel_pair();
 
-        let key_debug = format!("{key:?}");
         trace!(
-            key = %key_debug,
+            key = ?key,
             "FastSlowStore::update: starting dual-store upload",
         );
         let update_start = std::time::Instant::now();
@@ -469,7 +468,7 @@ impl StoreDriver for FastSlowStore {
         let total_elapsed = update_start.elapsed();
         if data_stream_res.is_err() || fast_res.is_err() || slow_res.is_err() {
             warn!(
-                key = %key_debug,
+                key = ?key,
                 elapsed_ms = total_elapsed.as_millis(),
                 data_stream_ok = data_stream_res.is_ok(),
                 fast_store_ok = fast_res.is_ok(),
@@ -478,7 +477,7 @@ impl StoreDriver for FastSlowStore {
             );
         } else {
             trace!(
-                key = %key_debug,
+                key = ?key,
                 elapsed_ms = total_elapsed.as_millis(),
                 "FastSlowStore::update: completed successfully",
             );
