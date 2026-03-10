@@ -367,7 +367,8 @@ impl DropCloserReadHalf {
             }
             chunk
         };
-        let mut output = BytesMut::new();
+        let capacity = if size == usize::MAX { first_chunk.len() * 2 } else { size };
+        let mut output = BytesMut::with_capacity(capacity);
         output.extend_from_slice(&first_chunk);
 
         loop {
@@ -395,20 +396,31 @@ impl DropCloserReadHalf {
 impl Stream for DropCloserReadHalf {
     type Item = Result<Bytes, std::io::Error>;
 
-    // TODO(palfrey) This is not very efficient as we are creating a new future on every
-    // poll() call. It might be better to use a waker.
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Box::pin(self.recv())
-            .as_mut()
-            .poll(cx)
-            .map(|result| match result {
-                Ok(bytes) => {
-                    if bytes.is_empty() {
-                        return None;
-                    }
-                    Some(Ok(bytes))
-                }
-                Err(e) => Some(Err(e.to_std_err())),
-            })
+        // Check for cached errors.
+        if let Some(err) = &self.last_err {
+            return Poll::Ready(Some(Err(err.clone().to_std_err())));
+        }
+        // Drain queued data first (mirrors try_recv).
+        if let Some(chunk) = self.queued_data.pop_front() {
+            return match self.recv_inner(chunk) {
+                Ok(bytes) if bytes.is_empty() => Poll::Ready(None),
+                Ok(bytes) => Poll::Ready(Some(Ok(bytes))),
+                Err(e) => Poll::Ready(Some(Err(e.to_std_err()))),
+            };
+        }
+        // Poll the channel directly — no Box::pin allocation.
+        match self.rx.poll_recv(cx) {
+            Poll::Ready(Some(chunk)) => match self.recv_inner(chunk) {
+                Ok(bytes) if bytes.is_empty() => Poll::Ready(None),
+                Ok(bytes) => Poll::Ready(Some(Ok(bytes))),
+                Err(e) => Poll::Ready(Some(Err(e.to_std_err()))),
+            },
+            Poll::Ready(None) => match self.recv_inner(ZERO_DATA) {
+                Ok(_) => Poll::Ready(None),
+                Err(e) => Poll::Ready(Some(Err(e.to_std_err()))),
+            },
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
