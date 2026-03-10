@@ -27,7 +27,7 @@ use hyper::StatusCode;
 use hyper_util::rt::tokio::TokioIo;
 use hyper_util::server::conn::auto;
 use hyper_util::service::TowerToHyperService;
-use mimalloc::MiMalloc;
+use tikv_jemallocator::Jemalloc;
 use nativelink_config::cas_server::{
     CasConfig, GlobalConfig, HttpCompressionAlgorithm, ListenerConfig, SchedulerConfig,
     ServerConfig, StoreConfig, WorkerConfig,
@@ -78,7 +78,7 @@ use tonic::service::Routes;
 use tracing::{error, error_span, info, trace_span, warn};
 
 #[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+static GLOBAL: Jemalloc = Jemalloc;
 
 /// Note: This must be kept in sync with the documentation in `AdminConfig::path`.
 const DEFAULT_ADMIN_API_PATH: &str = "/admin";

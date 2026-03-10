@@ -28,7 +28,7 @@ rust_binary(
         "@crates//:futures",
         "@crates//:hyper",
         "@crates//:hyper-util",
-        "@crates//:mimalloc",
+        "@crates//:tikv-jemallocator",
         "@crates//:parking_lot",
         "@crates//:rustls-pki-types",
         "@crates//:tokio",
